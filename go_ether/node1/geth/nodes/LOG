@@ -1,0 +1,32 @@
+=============== Jun 6, 2026 (KST) ===============
+08:30:24.443043 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:30:24.456907 db@open opening
+08:30:24.457360 version@stat F·[] S·0B[] Sc·[]
+08:30:24.460006 db@janitor F·2 G·0
+08:30:24.460015 db@open done T·3.086417ms
+08:45:15.991991 db@close closing
+08:45:15.992163 db@close done T·170.583µs
+=============== Jun 6, 2026 (KST) ===============
+08:45:59.171710 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:45:59.172081 version@stat F·[] S·0B[] Sc·[]
+08:45:59.172091 db@open opening
+08:45:59.172124 journal@recovery F·1
+08:45:59.172467 journal@recovery recovering @1
+08:45:59.175846 memdb@flush created L0@2 N·2 S·181B "loc..seq,v2":"version,v1"
+08:45:59.176217 version@stat F·[1] S·181B[181B] Sc·[0.25]
+08:45:59.191954 db@janitor F·3 G·0
+08:45:59.191976 db@open done T·19.879625ms
+09:52:29.889322 db@close closing
+09:52:29.889542 db@close done T·218.458µs
+=============== Jun 6, 2026 (KST) ===============
+09:52:31.973893 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+09:52:31.974100 version@stat F·[1] S·181B[181B] Sc·[0.25]
+09:52:31.974111 db@open opening
+09:52:31.974160 journal@recovery F·1
+09:52:31.974431 journal@recovery recovering @3
+09:52:31.977939 memdb@flush created L0@5 N·1 S·162B "loc..seq,v4":"loc..seq,v4"
+09:52:31.978245 version@stat F·[2] S·343B[343B] Sc·[0.50]
+09:52:31.992332 db@janitor F·4 G·0
+09:52:31.992355 db@open done T·18.239375ms
+10:20:25.589426 db@close closing
+10:20:25.589670 db@close done T·239µs

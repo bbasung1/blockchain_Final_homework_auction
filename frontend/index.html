@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>NFT 경매 시스템</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { text-align: center; color: #333; }
+    .section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h2 { color: #555; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+    input, button { padding: 8px 12px; margin: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
+    input { width: 280px; }
+    button { background: #4CAF50; color: white; border: none; cursor: pointer; }
+    button:hover { background: #45a049; }
+    button.red { background: #e53935; }
+    button.red:hover { background: #c62828; }
+    button.blue { background: #1976D2; }
+    button.blue:hover { background: #1565C0; }
+    #status { background: #fff9c4; border: 1px solid #f9a825; border-radius: 4px; padding: 10px; margin-bottom: 16px; font-size: 13px; }
+    #log { background: #263238; color: #80CBC4; border-radius: 4px; padding: 12px; font-size: 13px; min-height: 60px; white-space: pre-wrap; }
+    .auction-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 8px 0; background: #fafafa; }
+    label { font-weight: bold; font-size: 13px; display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🖼️ NFT 경매 시스템</h1>
+
+  <div id="status">MetaMask 연결 대기 중...</div>
+
+  <!-- 1. 지갑 연결 -->
+  <div class="section">
+    <h2>① 지갑 연결 (Node2 - 8546)</h2>
+    <button onclick="connectWallet()">MetaMask 연결</button>
+    <span id="accountInfo" style="margin-left:10px; font-size:13px; color:#555;"></span>
+  </div>
+
+  <!-- 2. NFT 발행 -->
+  <div class="section">
+    <h2>② NFT 발행 (판매자)</h2>
+    <label>받을 주소 (판매자 주소)</label>
+    <input id="mintTo" placeholder="0x..." />
+    <label>NFT 이름/설명 (URI)</label>
+    <input id="mintUri" placeholder="My NFT #1" />
+    <br/>
+    <button onclick="mintNFT()">NFT 발행</button>
+    <span id="mintResult" style="margin-left:10px; font-size:13px; color:#1976D2;"></span>
+  </div>
+
+  <!-- 3. 경매 등록 -->
+  <div class="section">
+    <h2>③ 경매 등록 (판매자)</h2>
+    <label>Token ID</label>
+    <input id="auctionTokenId" placeholder="1" type="number" />
+    <label>시작가 (ETH)</label>
+    <input id="auctionStartPrice" placeholder="0.1" type="number" step="0.01" />
+    <label>경매 시간 (초)</label>
+    <input id="auctionDuration" placeholder="300" type="number" />
+    <br/>
+    <button onclick="approveAndCreateAuction()">승인 후 경매 등록</button>
+  </div>
+
+  <!-- 4. 입찰 -->
+  <div class="section">
+    <h2>④ 입찰 (구매자)</h2>
+    <label>경매 ID</label>
+    <input id="bidAuctionId" placeholder="1" type="number" />
+    <label>입찰가 (ETH)</label>
+    <input id="bidAmount" placeholder="0.2" type="number" step="0.01" />
+    <br/>
+    <button class="blue" onclick="placeBid()">입찰하기</button>
+  </div>
+
+  <!-- 5. 경매 종료 / 환불 -->
+  <div class="section">
+    <h2>⑤ 경매 종료 / 환불</h2>
+    <label>경매 ID</label>
+    <input id="endAuctionId" placeholder="1" type="number" />
+    <button class="red" onclick="endAuction()">경매 종료 (낙찰)</button>
+    <button class="blue" onclick="withdraw()">환불 받기</button>
+  </div>
+
+  <!-- 6. 경매 조회 -->
+  <div class="section">
+    <h2>⑥ 경매 정보 조회</h2>
+    <label>경매 ID</label>
+    <input id="queryAuctionId" placeholder="1" type="number" />
+    <button onclick="queryAuction()">조회</button>
+    <div id="auctionInfo"></div>
+  </div>
+
+  <!-- 로그 -->
+  <div class="section">
+    <h2>📋 로그</h2>
+    <div id="log">대기 중...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <script>
+    // ─── 컨트랙트 주소 ───────────────────────────────────────────
+    const NFT_ADDRESS     = "0x4AA3f6B8545b9AFdF753CAcC13e5a03f5D7D25A0";
+    const AUCTION_ADDRESS = "0x34D6CB19d1707a4036323dd190485c87D8DE792b";
+    const NODE2_RPC       = "http://127.0.0.1:8546";
+
+    // ─── ABI ─────────────────────────────────────────────────────
+    const NFT_ABI = [
+      {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+      {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"string","name":"uri","type":"string"}],"name":"mint","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function","constant":true},
+      {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"approved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function","constant":true},
+      {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function","constant":true},
+      {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenId","type":"uint256"},{"indexed":false,"internalType":"string","name":"uri","type":"string"}],"name":"Minted","type":"event"}
+    ];
+
+    const AUCTION_ABI = [
+      {"inputs":[{"internalType":"address","name":"nftAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+      {"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"startPrice","type":"uint256"},{"internalType":"uint256","name":"durationSeconds","type":"uint256"}],"name":"createAuction","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"bid","outputs":[],"stateMutability":"payable","type":"function","payable":true},
+      {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"endAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"auctions","outputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"address payable","name":"seller","type":"address"},{"internalType":"uint256","name":"startPrice","type":"uint256"},{"internalType":"uint256","name":"highestBid","type":"uint256"},{"internalType":"address payable","name":"highestBidder","type":"address"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"bool","name":"ended","type":"bool"}],"stateMutability":"view","type":"function","constant":true},
+      {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokenId","type":"uint256"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"startPrice","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"endTime","type":"uint256"}],"name":"AuctionCreated","type":"event"},
+      {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BidPlaced","type":"event"},
+      {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"winner","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"AuctionEnded","type":"event"},
+      {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Refunded","type":"event"}
+    ];
+
+    // ─── 전역 변수 ───────────────────────────────────────────────
+    let web3, nftContract, auctionContract, currentAccount;
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      const time = new Date().toLocaleTimeString();
+      el.textContent += `\n[${time}] ${msg}`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(msg, color = "#fff9c4") {
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      el.style.background = color;
+    }
+
+    // ─── 지갑 연결 ───────────────────────────────────────────────
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("MetaMask가 설치되어 있지 않습니다.");
+        return;
+      }
+      try {
+        // Node2(8546) 네트워크로 강제 전환
+        const NODE2_CHAIN_ID = "0x3ec"; // 1004
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: NODE2_CHAIN_ID }]
+          });
+        } catch (switchErr) {
+          // 네트워크가 없으면 자동 추가
+          if (switchErr.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: NODE2_CHAIN_ID,
+                chainName: "Node2",
+                rpcUrls: ["http://127.0.0.1:8546"],
+                nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 }
+              }]
+            });
+          } else {
+            throw switchErr;
+          }
+        }
+
+        web3 = new Web3(window.ethereum);
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        currentAccount = accounts[0];
+
+        nftContract     = new web3.eth.Contract(NFT_ABI, NFT_ADDRESS);
+        auctionContract = new web3.eth.Contract(AUCTION_ABI, AUCTION_ADDRESS);
+
+        document.getElementById("accountInfo").textContent = `연결됨: ${currentAccount}`;
+        setStatus(`✅ 지갑 연결됨: ${currentAccount}`, "#c8e6c9");
+        log(`지갑 연결: ${currentAccount}`);
+
+        // 계정 변경 감지
+        window.ethereum.on("accountsChanged", (accs) => {
+          currentAccount = accs[0];
+          document.getElementById("accountInfo").textContent = `연결됨: ${currentAccount}`;
+          log(`계정 변경: ${currentAccount}`);
+        });
+      } catch (e) {
+        log(`지갑 연결 실패: ${e.message}`);
+        setStatus("❌ 지갑 연결 실패", "#ffcdd2");
+      }
+    }
+
+    // ─── NFT 발행 ────────────────────────────────────────────────
+    async function mintNFT() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const to  = document.getElementById("mintTo").value.trim();
+      const uri = document.getElementById("mintUri").value.trim();
+      if (!to || !uri) { alert("주소와 URI를 입력하세요."); return; }
+      try {
+        log(`NFT 발행 요청: to=${to}, uri=${uri}`);
+        const receipt = await nftContract.methods.mint(to, uri).send({ from: currentAccount, gasPrice: "1000000000" });
+        const tokenId = receipt.events.Minted.returnValues.tokenId;
+        document.getElementById("mintResult").textContent = `✅ Token ID: ${tokenId}`;
+        log(`NFT 발행 완료 - Token ID: ${tokenId}, tx: ${receipt.transactionHash}`);
+      } catch (e) {
+        log(`NFT 발행 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 경매 등록 (approve → createAuction) ────────────────────
+    async function approveAndCreateAuction() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const tokenId  = document.getElementById("auctionTokenId").value;
+      const priceEth = document.getElementById("auctionStartPrice").value;
+      const duration = document.getElementById("auctionDuration").value;
+      if (!tokenId || !priceEth || !duration) { alert("모든 항목을 입력하세요."); return; }
+
+      const priceWei = web3.utils.toWei(priceEth, "ether");
+      try {
+        log(`NFT 승인 요청: tokenId=${tokenId} → Auction 컨트랙트`);
+        await nftContract.methods.approve(AUCTION_ADDRESS, tokenId).send({ from: currentAccount, gasPrice: "1000000000" });
+        log(`NFT 승인 완료`);
+
+        log(`경매 등록 요청: tokenId=${tokenId}, 시작가=${priceEth} ETH, 기간=${duration}초`);
+        const receipt = await auctionContract.methods
+          .createAuction(tokenId, priceWei, duration)
+          .send({ from: currentAccount, gasPrice: "1000000000" });
+        const auctionId = receipt.events.AuctionCreated.returnValues.auctionId;
+        log(`경매 등록 완료 - Auction ID: ${auctionId}, tx: ${receipt.transactionHash}`);
+        alert(`경매 등록 완료! Auction ID: ${auctionId}`);
+      } catch (e) {
+        log(`경매 등록 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 입찰 ────────────────────────────────────────────────────
+    async function placeBid() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const auctionId = document.getElementById("bidAuctionId").value;
+      const amountEth = document.getElementById("bidAmount").value;
+      if (!auctionId || !amountEth) { alert("경매 ID와 입찰가를 입력하세요."); return; }
+
+      const amountWei = web3.utils.toWei(amountEth, "ether");
+      try {
+        log(`입찰 요청: auctionId=${auctionId}, 금액=${amountEth} ETH`);
+        const receipt = await auctionContract.methods.bid(auctionId)
+          .send({ from: currentAccount, value: amountWei, gasPrice: "1000000000" });
+        log(`입찰 완료 - tx: ${receipt.transactionHash}`);
+        alert(`입찰 완료! ${amountEth} ETH`);
+      } catch (e) {
+        log(`입찰 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 경매 종료 ───────────────────────────────────────────────
+    async function endAuction() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const auctionId = document.getElementById("endAuctionId").value;
+      if (!auctionId) { alert("경매 ID를 입력하세요."); return; }
+      try {
+        log(`경매 종료 요청: auctionId=${auctionId}`);
+        const receipt = await auctionContract.methods.endAuction(auctionId)
+          .send({ from: currentAccount, gasPrice: "1000000000" });
+        const ev = receipt.events.AuctionEnded.returnValues;
+        log(`경매 종료 완료 - 낙찰자: ${ev.winner}, 금액: ${web3.utils.fromWei(ev.amount, "ether")} ETH`);
+        alert(`낙찰 완료!\n낙찰자: ${ev.winner}\n금액: ${web3.utils.fromWei(ev.amount, "ether")} ETH`);
+      } catch (e) {
+        log(`경매 종료 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 환불 ────────────────────────────────────────────────────
+    async function withdraw() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const auctionId = document.getElementById("endAuctionId").value;
+      if (!auctionId) { alert("경매 ID를 입력하세요."); return; }
+      try {
+        log(`환불 요청: auctionId=${auctionId}`);
+        const receipt = await auctionContract.methods.withdraw(auctionId)
+          .send({ from: currentAccount, gasPrice: "1000000000" });
+        log(`환불 완료 - tx: ${receipt.transactionHash}`);
+        alert("환불 완료!");
+      } catch (e) {
+        log(`환불 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 경매 조회 ───────────────────────────────────────────────
+    async function queryAuction() {
+      if (!auctionContract) {
+        // 지갑 없이도 조회 가능하도록 읽기 전용 web3 사용
+        const readWeb3 = new Web3(NODE2_RPC);
+        auctionContract = new readWeb3.eth.Contract(AUCTION_ABI, AUCTION_ADDRESS);
+      }
+      const auctionId = document.getElementById("queryAuctionId").value;
+      if (!auctionId) { alert("경매 ID를 입력하세요."); return; }
+      try {
+        const a = await auctionContract.methods.auctions(auctionId).call();
+        const endDate = new Date(a.endTime * 1000).toLocaleString();
+        const remaining = Math.max(0, a.endTime - Math.floor(Date.now() / 1000));
+        const infoHtml = `
+          <div class="auction-card">
+            <b>Auction #${auctionId}</b><br/>
+            Token ID: ${a.tokenId}<br/>
+            판매자: ${a.seller}<br/>
+            시작가: ${Web3.utils ? Web3.utils.fromWei(a.startPrice, "ether") : a.startPrice} ETH<br/>
+            현재 최고 입찰가: ${Web3.utils ? Web3.utils.fromWei(a.highestBid, "ether") : a.highestBid} ETH<br/>
+            최고 입찰자: ${a.highestBidder === "0x0000000000000000000000000000000000000000" ? "없음" : a.highestBidder}<br/>
+            종료 시각: ${endDate} (남은 시간: ${remaining}초)<br/>
+            종료 여부: ${a.ended ? "✅ 종료됨" : "⏳ 진행 중"}
+          </div>`;
+        document.getElementById("auctionInfo").innerHTML = infoHtml;
+        log(`경매 조회 완료: auctionId=${auctionId}`);
+      } catch (e) {
+        log(`경매 조회 실패: ${e.message}`);
+      }
+    }
+  </script>
+</body>
+</html>

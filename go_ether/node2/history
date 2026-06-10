@@ -1,0 +1,33 @@
+admin.nodeInfo.enode
+eth.getBlock(0).hash
+net.version
+admin.nodeInfo
+admin.nodeInfo.enode
+miner.start()
+miner.stop()
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+eth.accounts
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+eth.accounts
+> personal.exportRawKey("0x772fec64fc02614922c9dcfbaf7b0e5eed293e48", "0x09b94ee63bd20aec706050943ca973b0d25afd19")
+personal.exportRawKey("0x772fec64fc02614922c9dcfbaf7b0e5eed293e48", "0x09b94ee63bd20aec706050943ca973b0d25afd19")
+eth.accounts
+eth.getBalance(eth.accounts[1])
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+miner.start()
+miner.stop()
+miner.start()
+miner.stop()
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+eth.getBalance(eth.accounts[0])
+eth.getBalance(eth.accounts[1])
+admin.nodeInfo.enode
+admin.peers
+eth.getBalance(eth.accounts[1])
+eth.getBalance(eth.accounts[0])
