@@ -31,3 +31,8 @@ admin.nodeInfo.enode
 admin.peers
 eth.getBalance(eth.accounts[1])
 eth.getBalance(eth.accounts[0])
+admin.nodeInfo.enode
+miner.start(1)
+miner.stop()
+admin.peers()
+admin.peers

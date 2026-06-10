@@ -16,10 +16,26 @@
     button.red:hover { background: #c62828; }
     button.blue { background: #1976D2; }
     button.blue:hover { background: #1565C0; }
+    button.orange { background: #F57C00; }
+    button.orange:hover { background: #E65100; }
     #status { background: #fff9c4; border: 1px solid #f9a825; border-radius: 4px; padding: 10px; margin-bottom: 16px; font-size: 13px; }
     #log { background: #263238; color: #80CBC4; border-radius: 4px; padding: 12px; font-size: 13px; min-height: 60px; white-space: pre-wrap; }
     .auction-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 8px 0; background: #fafafa; }
     label { font-weight: bold; font-size: 13px; display: block; margin-top: 8px; }
+    /* 파일 업로드 */
+    .upload-area {
+      border: 2px dashed #90CAF9; border-radius: 8px; padding: 20px;
+      text-align: center; cursor: pointer; margin: 10px 0;
+      transition: background 0.2s;
+    }
+    .upload-area:hover { background: #E3F2FD; }
+    .upload-area.dragover { background: #BBDEFB; border-color: #1976D2; }
+    #imagePreview {
+      max-width: 200px; max-height: 200px; border-radius: 8px;
+      margin: 8px 0; display: none; border: 2px solid #90CAF9;
+    }
+    #uploadProgress { font-size: 13px; color: #1976D2; margin: 4px 0; }
+    .nft-image { max-width: 120px; max-height: 120px; border-radius: 6px; vertical-align: middle; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -39,10 +55,21 @@
     <h2>② NFT 발행 (판매자)</h2>
     <label>받을 주소 (판매자 주소)</label>
     <input id="mintTo" placeholder="0x..." />
+
+    <label>NFT 이미지 업로드</label>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileSelect(event)" />
+      📁 클릭하거나 이미지를 드래그해서 올려주세요<br/>
+      <small style="color:#888">(JPG, PNG, GIF, WEBP / 최대 10MB)</small>
+    </div>
+    <img id="imagePreview" alt="미리보기" />
+    <div id="uploadProgress"></div>
+
     <label>NFT 이름/설명 (URI)</label>
-    <input id="mintUri" placeholder="My NFT #1" />
+    <input id="mintUri" placeholder="이미지 업로드 시 자동 입력됩니다" style="width:400px" />
     <br/>
-    <button onclick="mintNFT()">NFT 발행</button>
+    <button class="orange" onclick="uploadAndFill()" style="margin-right:8px">① 이미지 업로드</button>
+    <button onclick="mintNFT()">② NFT 발행</button>
     <span id="mintResult" style="margin-left:10px; font-size:13px; color:#1976D2;"></span>
   </div>
 
@@ -128,6 +155,67 @@
 
     // ─── 전역 변수 ───────────────────────────────────────────────
     let web3, nftContract, auctionContract, currentAccount;
+    let selectedFile = null;
+
+    // ─── 드래그 앤 드롭 ──────────────────────────────────────────
+    const uploadArea = document.getElementById("uploadArea");
+    uploadArea.addEventListener("dragover", e => { e.preventDefault(); uploadArea.classList.add("dragover"); });
+    uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("dragover"));
+    uploadArea.addEventListener("drop", e => {
+      e.preventDefault();
+      uploadArea.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file) previewFile(file);
+    });
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) previewFile(file);
+    }
+
+    function previewFile(file) {
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.getElementById("imagePreview");
+        img.src = ev.target.result;
+        img.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+      document.getElementById("uploadProgress").textContent = `선택된 파일: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+      log(`파일 선택: ${file.name}`);
+    }
+
+    // ─── 이미지 업로드 → URI 자동 입력 ──────────────────────────
+    async function uploadAndFill() {
+      if (!selectedFile) {
+        alert("먼저 이미지를 선택하세요.");
+        return;
+      }
+      const progressEl = document.getElementById("uploadProgress");
+      progressEl.textContent = "업로드 중...";
+      log(`이미지 업로드 시작: ${selectedFile.name}`);
+
+      try {
+        const formData = new FormData();
+        formData.append("nftImage", selectedFile);
+
+        const res = await fetch("http://localhost:3000/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+
+        const data = await res.json();
+        document.getElementById("mintUri").value = data.url;
+        progressEl.textContent = `✅ 업로드 완료: ${data.url}`;
+        log(`이미지 업로드 완료 → URI: ${data.url}`);
+      } catch (e) {
+        progressEl.textContent = `❌ 업로드 실패: ${e.message}`;
+        log(`이미지 업로드 실패: ${e.message}`);
+      }
+    }
 
     function log(msg) {
       const el = document.getElementById("log");
@@ -304,9 +392,18 @@
         const a = await auctionContract.methods.auctions(auctionId).call();
         const endDate = new Date(a.endTime * 1000).toLocaleString();
         const remaining = Math.max(0, a.endTime - Math.floor(Date.now() / 1000));
+        // NFT 이미지 URI 조회
+        let nftImgHtml = "";
+        try {
+          const uri = await nftContract.methods.tokenURI(a.tokenId).call();
+          if (uri && uri.startsWith("http")) {
+            nftImgHtml = `<br/><img src="${uri}" class="nft-image" alt="NFT 이미지" onerror="this.style.display='none'" />`;
+          }
+        } catch(e) { /* 무시 */ }
+
         const infoHtml = `
           <div class="auction-card">
-            <b>Auction #${auctionId}</b><br/>
+            <b>Auction #${auctionId}</b>${nftImgHtml}<br/>
             Token ID: ${a.tokenId}<br/>
             판매자: ${a.seller}<br/>
             시작가: ${Web3.utils ? Web3.utils.fromWei(a.startPrice, "ether") : a.startPrice} ETH<br/>
