@@ -24,6 +24,7 @@ contract Auction {
     event AuctionCreated(uint256 auctionId, uint256 tokenId, address seller, uint256 startPrice, uint256 endTime);
     event BidPlaced(uint256 auctionId, address bidder, uint256 amount);
     event AuctionEnded(uint256 auctionId, address winner, uint256 amount);
+    event AuctionCancelled(uint256 auctionId, address seller);
     event Refunded(uint256 auctionId, address bidder, uint256 amount);
 
     constructor(address nftAddress) {
@@ -90,6 +91,27 @@ contract Auction {
         }
 
         emit AuctionEnded(auctionId, auction.highestBidder, auction.highestBid);
+    }
+
+    // 경매 강제 취소 (판매자 전용)
+    function cancelAuction(uint256 auctionId) public {
+        AuctionItem storage auction = auctions[auctionId];
+        require(msg.sender == auction.seller, "Not seller");
+        require(!auction.ended, "Already ended");
+        require(block.timestamp < auction.endTime, "Auction already expired");
+
+        auction.ended = true;
+
+        // 최고 입찰자가 있으면 즉시 환불
+        if (auction.highestBidder != address(0)) {
+            address payable refundTo = auction.highestBidder;
+            uint256 refundAmount = auction.highestBid;
+            auction.highestBid = 0;
+            auction.highestBidder = payable(address(0));
+            refundTo.transfer(refundAmount);
+        }
+
+        emit AuctionCancelled(auctionId, msg.sender);
     }
 
     // 환불 (낙찰 실패한 입찰자)

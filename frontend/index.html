@@ -97,13 +97,14 @@
     <button class="blue" onclick="placeBid()">입찰하기</button>
   </div>
 
-  <!-- 5. 경매 종료 / 환불 -->
+  <!-- 5. 경매 종료 / 환불 / 취소 -->
   <div class="section">
-    <h2>⑤ 경매 종료 / 환불</h2>
+    <h2>⑤ 경매 종료 / 환불 / 취소</h2>
     <label>경매 ID</label>
     <input id="endAuctionId" placeholder="1" type="number" />
     <button class="red" onclick="endAuction()">경매 종료 (낙찰)</button>
     <button class="blue" onclick="withdraw()">환불 받기</button>
+    <button class="orange" onclick="cancelAuction()">경매 취소 (판매자)</button>
   </div>
 
   <!-- 6. 경매 조회 -->
@@ -124,8 +125,8 @@
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <script>
     // ─── 컨트랙트 주소 ───────────────────────────────────────────
-    const NFT_ADDRESS     = "0x4AA3f6B8545b9AFdF753CAcC13e5a03f5D7D25A0";
-    const AUCTION_ADDRESS = "0x34D6CB19d1707a4036323dd190485c87D8DE792b";
+    const NFT_ADDRESS     = "0xe040Ef325C3d21Cf23d2c1Ed90119343558e9b80";
+    const AUCTION_ADDRESS = "0xDdCcBa448952Ff6D395746E971481a0b4bc546C8";
     const NODE2_RPC       = "http://127.0.0.1:8546";
 
     // ─── ABI ─────────────────────────────────────────────────────
@@ -146,6 +147,8 @@
       {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"bid","outputs":[],"stateMutability":"payable","type":"function","payable":true},
       {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"endAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},
       {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"cancelAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},
+      {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"seller","type":"address"}],"name":"AuctionCancelled","type":"event"},
       {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"auctions","outputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"address payable","name":"seller","type":"address"},{"internalType":"uint256","name":"startPrice","type":"uint256"},{"internalType":"uint256","name":"highestBid","type":"uint256"},{"internalType":"address payable","name":"highestBidder","type":"address"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"bool","name":"ended","type":"bool"}],"stateMutability":"view","type":"function","constant":true},
       {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"tokenId","type":"uint256"},{"indexed":false,"internalType":"address","name":"seller","type":"address"},{"indexed":false,"internalType":"uint256","name":"startPrice","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"endTime","type":"uint256"}],"name":"AuctionCreated","type":"event"},
       {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BidPlaced","type":"event"},
@@ -360,6 +363,23 @@
         alert(`낙찰 완료!\n낙찰자: ${ev.winner}\n금액: ${web3.utils.fromWei(ev.amount, "ether")} ETH`);
       } catch (e) {
         log(`경매 종료 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 경매 취소 (판매자 전용) ─────────────────────────────────
+    async function cancelAuction() {
+      if (!currentAccount) { alert("먼저 지갑을 연결하세요."); return; }
+      const auctionId = document.getElementById("endAuctionId").value;
+      if (!auctionId) { alert("경매 ID를 입력하세요."); return; }
+      if (!confirm(`경매 #${auctionId}를 취소하시겠습니까?\n입찰자가 있다면 즉시 환불됩니다.`)) return;
+      try {
+        log(`경매 취소 요청: auctionId=${auctionId}`);
+        const receipt = await auctionContract.methods.cancelAuction(auctionId)
+          .send({ from: currentAccount, gasPrice: "1000000000" });
+        log(`경매 취소 완료 - tx: ${receipt.transactionHash}`);
+        alert(`경매 #${auctionId} 취소 완료`);
+      } catch (e) {
+        log(`경매 취소 실패: ${e.message}`);
       }
     }
 
