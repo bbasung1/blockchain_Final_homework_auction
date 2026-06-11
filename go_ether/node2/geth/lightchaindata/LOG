@@ -6,3 +6,27 @@
 08:28:29.846430 db@open done T·3.998625ms
 08:28:29.890899 db@close closing
 08:28:29.890966 db@close done T·67.125µs
+=============== Jun 11, 2026 (KST) ===============
+08:29:34.866475 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:29:34.867002 version@stat F·[] S·0B[] Sc·[]
+08:29:34.867017 db@open opening
+08:29:34.867074 journal@recovery F·1
+08:29:34.867634 journal@recovery recovering @1
+08:29:34.871588 memdb@flush created L0@2 N·11 S·641B "H(\x93..J\xf8\xd4,v4":"r\x00\x00..J\xf8\xd4,v6"
+08:29:34.872062 version@stat F·[1] S·641B[641B] Sc·[0.25]
+08:29:34.891872 db@janitor F·3 G·0
+08:29:34.891892 db@open done T·24.868167ms
+08:29:34.897865 db@close closing
+08:29:34.897929 db@close done T·62.458µs
+=============== Jun 11, 2026 (KST) ===============
+08:35:56.562041 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:35:56.562587 version@stat F·[1] S·641B[641B] Sc·[0.25]
+08:35:56.562607 db@open opening
+08:35:56.562657 journal@recovery F·1
+08:35:56.562883 journal@recovery recovering @3
+08:35:56.566810 memdb@flush created L0@5 N·1 S·353B "eth..J\xf8\xd4,v13":"eth..J\xf8\xd4,v13"
+08:35:56.567479 version@stat F·[2] S·994B[994B] Sc·[0.50]
+08:35:56.584171 db@janitor F·4 G·0
+08:35:56.584202 db@open done T·21.587958ms
+08:35:56.590220 db@close closing
+08:35:56.590270 db@close done T·48.125µs
